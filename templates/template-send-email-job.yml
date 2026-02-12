@@ -1,0 +1,116 @@
+#############################################################################################
+## SendGrid Email Notification Template
+# Description:
+#   Sends an HTML report email via SendGrid API.
+# Parameters:
+#   - resourceGroupName: Name of Resource group (e.g., RG-Oboba-Dev)
+#   - targetEnv: Target environment (dev, qa, prod)
+#   - emailRecipient: Recipient email address (e.g., admin@example.com)
+#   - fromEmail: Sender email address (e.g., noreply@example.com)
+#   - replyToEmail: Reply-to email address (default: prodAdmin@example.com)
+#   - replyToName: Reply-to display name (default: Platform Admin)
+#############################################################################################
+
+parameters:
+  - name: resourceGroupName
+    type: string
+  - name: targetEnv
+    type: string
+  - name: emailRecipient
+    type: string
+  - name: fromEmail
+    type: string
+    default: "noreply@example.com"
+  - name: replyToEmail
+    type: string
+    default: "prodAdmin@example.com"
+  - name: replyToName
+    type: string
+    default: "Platform Admin"
+
+steps:
+  - task: Bash@3
+    inputs:
+      targetType: "inline"
+      script: |
+        set -euo pipefail
+        echo "=========================================="
+        echo "Sending email for ${{ parameters.targetEnv }} environment"
+        echo "Resource group: ${{ parameters.resourceGroupName }}"
+        echo "=========================================="
+
+        # Check if API key is available
+        if [ -z "$(SendGrid-API-Key)" ]; then
+          echo "ERROR: SendGrid API key not available!"
+          exit 1
+        fi
+
+        # Find the HTML report file
+        REPORT_FILE=$(find $(Pipeline.Workspace)/downloadedReport -name "*.html" -type f | head -n 1)
+
+        if [ -z "$REPORT_FILE" ] || [ ! -f "$REPORT_FILE" ]; then
+          echo "ERROR: Report file not found, but artifacts were published!"
+          echo "This indicates an artifact download problem."
+          exit 1
+        fi
+
+        echo "Found report: $REPORT_FILE"
+
+        # Escape HTML content for JSON
+        HTML_CONTENT=$(cat "$REPORT_FILE" | python3 -c "import sys, json; print(json.dumps(sys.stdin.read()))")
+
+        # Email configuration
+        API_KEY="$(SendGrid-API-Key)"
+        FROM_EMAIL="${{ parameters.fromEmail }}"
+        SUBJECT="[ALERT] Key Vault Secrets Expiring in ${{ parameters.resourceGroupName }} - $(date +'%Y-%m-%d')"
+
+        # Multiple recipients (comma-separated)
+        export TO_EMAILS="${{ parameters.emailRecipient }}"
+
+        TO_JSON=$(python3 - <<'PY'
+        import os, json
+        emails = [e.strip() for e in os.environ["TO_EMAILS"].split(",") if e.strip()]
+        print(json.dumps([{"email": e} for e in emails]))
+        PY
+        )
+
+        # Build JSON payload
+        JSON_PAYLOAD=$(cat <<EOF
+        {
+          "personalizations": [{
+            "to": $TO_JSON,
+            "subject": "$SUBJECT"
+          }],
+          "from": {
+            "email": "$FROM_EMAIL"
+          },
+          "reply_to": {
+            "email": "${{ parameters.replyToEmail }}",
+            "name": "${{ parameters.replyToName }}"
+          },
+          "content": [{
+            "type": "text/html",
+            "value": $HTML_CONTENT
+          }]
+        }
+        EOF
+        )
+        echo "Sending to: $TO_EMAILS"
+
+        # Send via SendGrid API
+        HTTP_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST https://api.sendgrid.com/v3/mail/send \
+          -H "Authorization: Bearer $API_KEY" \
+          -H "Content-Type: application/json" \
+          -d "$JSON_PAYLOAD")
+
+        HTTP_CODE=$(echo "$HTTP_RESPONSE" | tail -n1)
+
+        if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
+          echo "✓ Email sent successfully for ${{ parameters.targetEnv }}!"
+          exit 0
+        else
+          echo "✗ Failed to send email (HTTP $HTTP_CODE)"
+          echo "$HTTP_RESPONSE" | sed '$d'
+          exit 1
+        fi
+    displayName: "Send Email via SendGrid for ${{ parameters.resourceGroupName }} - ${{ parameters.targetEnv }}"
