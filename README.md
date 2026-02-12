@@ -58,13 +58,17 @@ This pipeline uses [SendGrid](https://sendgrid.com/) to send email notifications
 ## Folder Structure
 
 ```bash
-project AKV Check/
-  schedule-check-amt-kv-secrets-expiration.yml
-  templates/
-    template-check-kv-secrets-expiration.yml
-    template-install-az-cli.yml
-    template-send-email-job.yml
-    variables-oboba.yml
+azure-kv-secrets-expiration-pipeline/
+│
+├── README.md
+│
+├── schedule-check-oboba-kv-secrets-expiration.yml
+│
+└──  templates/
+    ├── template-check-kv-secrets-expiration.yml
+    ├── template-send-email-job.yml
+    ├── template-install-az-cli.yml
+    └── variables-oboba.yml
 ```
 
 ## Setup Instructions
