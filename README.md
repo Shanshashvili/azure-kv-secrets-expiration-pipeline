@@ -1,4 +1,4 @@
-# Key Vault Secrets Expiration Check Pipeline (Oboba)
+# Key Vault Secrets Expiration Check Pipeline
 
 ## Overview
 
