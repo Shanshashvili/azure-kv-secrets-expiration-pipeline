@@ -1,0 +1,32 @@
+steps:
+  - task: Bash@3
+    inputs:
+      targetType: inline
+      script: |
+        set -euo pipefail
+        set -x
+
+        if ! command -v az >/dev/null 2>&1; then
+          echo "Installing Azure CLI via Microsoft repository..."
+
+          # Install required dependencies
+          sudo apt-get update
+          sudo apt-get install -y ca-certificates curl apt-transport-https lsb-release gnupg
+
+          # Add Microsoft signing key and repository
+          curl -fsSL https://packages.microsoft.com/keys/microsoft.asc \
+            | gpg --dearmor \
+            | sudo tee /etc/apt/trusted.gpg.d/microsoft.gpg > /dev/null
+
+          echo "deb [arch=amd64] https://packages.microsoft.com/repos/azure-cli/ $(lsb_release -cs) main" \
+            | sudo tee /etc/apt/sources.list.d/azure-cli.list > /dev/null
+
+          # Install Azure CLI package
+          sudo apt-get update
+          sudo apt-get install -y azure-cli
+        fi
+
+        echo "Azure CLI path and version:"
+        which az
+        az --version
+    displayName: "Install Azure CLI"
