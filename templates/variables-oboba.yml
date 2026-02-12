@@ -1,0 +1,40 @@
+# Parameters from main pipeline
+parameters:
+  - name: targetEnv
+    default: dev
+    type: string
+
+# Only variables used in root pipeline YAML
+variables:
+  - name: azureSubscription
+    ${{ if eq(parameters.targetEnv, 'prod') }}:
+      value: "ProdServiceConnection"
+    ${{ else }}:
+      value: "NonProdServiceConnection"
+
+  - name: agentPool
+    ${{ if eq(parameters.targetEnv, 'dev') }}:
+      value: "Oboba-Dev-AgentPool"
+    ${{ if eq(parameters.targetEnv, 'qa') }}:
+      value: "Oboba-QA-AgentPool"
+    ${{ if eq(parameters.targetEnv, 'prod') }}:
+      value: "Oboba-Prod-AgentPool"
+
+  - name: targetEnv
+    value: ${{ parameters.targetEnv }}
+
+  - name: resourceGroupName
+    ${{ if eq(parameters.targetEnv, 'dev') }}:
+      value: "RG-Oboba-Dev"
+    ${{ if eq(parameters.targetEnv, 'qa') }}:
+      value: "RG-Oboba-QA"
+    ${{ if eq(parameters.targetEnv, 'prod') }}:
+      value: "RG-Oboba-Prod"
+
+  - name: keyVaultNameAdm
+    ${{ if eq(parameters.targetEnv, 'dev') }}:
+      value: "AKV-Oboba-DEV-ADM"
+    ${{ if eq(parameters.targetEnv, 'qa') }}:
+      value: "AKV-Oboba-QA-ADM"
+    ${{ if eq(parameters.targetEnv, 'prod') }}:
+      value: "AKV-Oboba-PRD-ADM"
